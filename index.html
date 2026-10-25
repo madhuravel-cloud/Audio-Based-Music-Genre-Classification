@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Analyzer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 60px auto;
+            padding: 20px;
+            background: #f4f4f4;
+            color: #222;
+        }
+        main {
+            background: white;
+            padding: 28px;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px #0001;
+        }
+        h1 { margin-top: 0; }
+        input, button { margin-top: 16px; }
+        button {
+            display: block;
+            padding: 10px 18px;
+            border: 0;
+            border-radius: 6px;
+            background: #5b4bdb;
+            color: white;
+            cursor: pointer;
+        }
+        button:disabled { opacity: 0.6; cursor: wait; }
+        #status, #error, #results { margin-top: 20px; }
+        #error { color: #b00020; white-space: pre-wrap; }
+        #results { display: none; }
+        .result { padding: 12px; background: #f0efff; border-radius: 6px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>🎵 Music Analyzer</h1>
+        <p>Choose an audio file to predict its genre and instrument.</p>
+
+        <form id="uploadForm">
+            <input type="file" id="music" name="music" accept="audio/*" required>
+            <button id="analyzeButton" type="submit">Analyze Music</button>
+        </form>
+
+        <p id="status"></p>
+        <p id="error"></p>
+
+        <section id="results">
+            <h2>Results</h2>
+            <div class="result"><strong>Genre:</strong> <span id="genre"></span></div>
+            <div class="result"><strong>Instrument:</strong> <span id="instrument"></span></div>
+        </section>
+    </main>
+
+    <script>
+        const API_URL = "http://127.0.0.1:8000/analyze";
+
+        const form = document.getElementById("uploadForm");
+        const fileInput = document.getElementById("music");
+        const button = document.getElementById("analyzeButton");
+        const status = document.getElementById("status");
+        const error = document.getElementById("error");
+        const results = document.getElementById("results");
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            if (!fileInput.files.length) {
+                error.textContent = "Please choose an audio file.";
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("music", fileInput.files[0]);
+
+            button.disabled = true;
+            status.textContent = "Analyzing audio... Please wait.";
+            error.textContent = "";
+            results.style.display = "none";
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || "Request failed: " + response.status);
+                }
+
+                document.getElementById("genre").textContent =
+                    typeof data.genre === "object" ? JSON.stringify(data.genre) : data.genre;
+
+                document.getElementById("instrument").textContent =
+                    typeof data.instrument === "object" ? JSON.stringify(data.instrument) : data.instrument;
+
+                results.style.display = "block";
+                status.textContent = "Analysis complete.";
+            } catch (err) {
+                error.textContent =
+                    "Could not analyze the audio: " + err.message +
+                    "\nCheck that the FastAPI server is running at " + API_URL;
+                status.textContent = "";
+                console.error(err);
+            } finally {
+                button.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
