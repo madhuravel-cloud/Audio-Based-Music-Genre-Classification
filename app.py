@@ -1,9 +1,9 @@
-
 import os
 import tempfile
 
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from main import genre
 from main2 import instrument
@@ -20,23 +20,27 @@ app.add_middleware(
 
 
 @app.post("/analyze")
-async def analyze(music: UploadFile = File(...)):
+def analyze(music: UploadFile = File(...)):
     suffix = os.path.splitext(music.filename or "")[1] or ".wav"
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp:
-        temp.write(await music.read())
+        temp.write(music.file.read())
         path = temp.name
 
     try:
         return {
             "filename": music.filename,
-            "genre": genre(path),
-            "instrument": instrument(path),
+            "genre": str(genre(path)),
+            "instrument": str(instrument(path)),
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
-        os.remove(path)
+        if os.path.exists(path):
+            os.remove(path)
 
 
 @app.get("/")
 def home():
-    return {"message": "Music Analyzer API is running"}
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    return FileResponse(os.path.join(base_dir, "index.html"))
