@@ -1,24 +1,34 @@
-from ctypes.util import test
-import pandas as pd 
-from input_audio_extractor_genre import audiofeatures
+import os
+import pandas as pd
+from input_audio_extractor_genre import audiofeatures 
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import recall_score
-from sklearn.metrics import f1_score
-from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.model_selection import train_test_split
+
+data = pd.read_csv("features_30_sec.csv")
+data = data.drop(columns=["filename", "length", "id", "clip name", "genre_label"], errors="ignore")
+
+# Automatically finds the target column ("label" or "genre")
+target_col = "label" if "label" in data.columns else "genre"
+y = data[target_col]
+X = data.drop(columns=[target_col])
+COLUMNS = X.columns
+
+model = RandomForestClassifier(
+    n_estimators=200,
+    max_depth=20,
+    min_samples_split=3,
+    class_weight="balanced",
+    random_state=42,
+    n_jobs=1
+)
+model.fit(X, y)
+
+del data, X, y
+
+
 def genre(music):
-    data=pd.read_csv(r"C:\Users\user\Downloads\music genre classifier\Data\features_30_sec.csv")
-    model=RandomForestClassifier(n_estimators=300,random_state=42)
-    data=data.drop(columns=["length","filename","harmony_mean","harmony_var","perceptr_mean","perceptr_var"])
-    y=data["label"]
-    X=data.drop(columns=["label"])
-    X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.01,random_state=42)
-    model.fit(X,y)
-    input_features=audiofeatures(music)
-    input_feat=pd.DataFrame([input_features],columns=X.columns)
-    y_pred=model.predict(input_feat)
-    return str(y_pred)
+    new_features = audiofeatures(music)
+    if isinstance(new_features, dict):
+        new_df = pd.DataFrame([new_features])[COLUMNS]
+    else:
+        new_df = pd.DataFrame([new_features], columns=COLUMNS)
+    return str(model.predict(new_df)[0])
