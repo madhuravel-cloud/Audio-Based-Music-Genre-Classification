@@ -5,112 +5,223 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Music Analyzer</title>
     <style>
+        * { box-sizing: border-box; }
         body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 60px auto;
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 960px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background: #f8f9fa;
+            color: #212529;
+        }
+        h1 { font-size: 24px; margin-bottom: 20px; }
+        h2 { font-size: 18px; margin-top: 0; border-bottom: 1px solid #e9ecef; padding-bottom: 10px; }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+        .card {
+            background: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
             padding: 20px;
-            background: #f4f4f4;
-            color: #222;
         }
-        main {
-            background: white;
-            padding: 28px;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px #0001;
+        label { display: block; font-size: 14px; font-weight: 600; margin-top: 12px; }
+        input[type="file"], input[type="text"] {
+            width: 100%;
+            padding: 8px 10px;
+            margin-top: 6px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
         }
-        h1 { margin-top: 0; }
-        input, button { margin-top: 16px; }
         button {
-            display: block;
-            padding: 10px 18px;
-            border: 0;
-            border-radius: 6px;
-            background: #5b4bdb;
-            color: white;
+            margin-top: 16px;
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            background: #212529;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
             cursor: pointer;
         }
-        button:disabled { opacity: 0.6; cursor: wait; }
-        #status, #error, #results { margin-top: 20px; }
-        #error { color: #b00020; white-space: pre-wrap; }
-        #results { display: none; }
-        .result { padding: 12px; background: #f0efff; border-radius: 6px; margin-top: 10px; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .metric-box {
+            background: #f1f3f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .metric-box strong { display: block; font-size: 16px; margin-top: 4px; }
+        canvas {
+            width: 100%;
+            height: 80px;
+            background: #f1f3f5;
+            border-radius: 4px;
+            margin-top: 12px;
+        }
+        .status { font-size: 14px; margin-top: 12px; color: #495057; }
+        .error { font-size: 14px; margin-top: 12px; color: #c92a2a; }
+        .success { font-size: 14px; margin-top: 12px; color: #2b8a3e; }
     </style>
 </head>
 <body>
-    <main>
-        <h1>🎵 Music Analyzer</h1>
-        <p>Choose an audio file to predict its genre and instrument.</p>
+    <h1>Music Analyzer & Dataset Builder</h1>
 
-        <form id="uploadForm">
-            <input type="file" id="music" name="music" accept="audio/*" required>
-            <button id="analyzeButton" type="submit">Analyze Music</button>
-        </form>
+    <div class="grid">
+        <div class="card">
+            <h2>1. Music Analysis (Librosa)</h2>
+            <form id="uploadForm">
+                <label for="music">Audio File</label>
+                <input type="file" id="music" name="music" accept="audio/*" required>
+                <button id="analyzeBtn" type="submit">Analyze Audio</button>
+            </form>
+            <p id="status" class="status"></p>
+            <p id="error" class="error"></p>
 
-        <p id="status"></p>
-        <p id="error"></p>
+            <div id="analysisSection" style="display:none;">
+                <div class="metrics">
+                    <div class="metric-box">Predicted Genre <strong id="predGenre">-</strong></div>
+                    <div class="metric-box">Predicted Instrument <strong id="predInst">-</strong></div>
+                    <div class="metric-box">Tempo (BPM) <strong id="tempo">-</strong></div>
+                    <div class="metric-box">Spectral Centroid <strong id="centroid">-</strong></div>
+                    <div class="metric-box">Spectral Rolloff <strong id="rolloff">-</strong></div>
+                    <div class="metric-box">Zero Crossing Rate <strong id="zcr">-</strong></div>
+                </div>
+                <label>Waveform</label>
+                <canvas id="waveCanvas" width="400" height="80"></canvas>
+            </div>
+        </div>
 
-        <section id="results">
-            <h2>Results</h2>
-            <div class="result"><strong>Genre:</strong> <span id="genre"></span></div>
-            <div class="result"><strong>Instrument:</strong> <span id="instrument"></span></div>
-        </section>
-    </main>
+        <div class="card">
+            <h2>2. Suggest & Add Song to Dataset</h2>
+            <p style="font-size:13px; color:#495057; margin-top:0;">
+                Verify or correct the labels below to append this audio file's extracted features to the training CSV dataset.
+            </p>
+            <form id="feedbackForm">
+                <label for="suggestGenre">Correct Genre</label>
+                <input type="text" id="suggestGenre" placeholder="e.g. jazz, rock, classical" required disabled>
+
+                <label for="suggestInst">Correct Instrument</label>
+                <input type="text" id="suggestInst" placeholder="e.g. trumpet, piano, guitar" required disabled>
+
+                <button id="saveBtn" type="submit" disabled>Add to Dataset & Retrain</button>
+            </form>
+            <p id="saveMsg" class="success"></p>
+        </div>
+    </div>
 
     <script>
-        const API_URL = "https://audio-based-music-genre-classification.onrender.com/analyze";
+        const BASE_URL = "http://127.0.0.1:8000";
+        let currentData = null;
 
-        const form = document.getElementById("uploadForm");
-        const fileInput = document.getElementById("music");
-        const button = document.getElementById("analyzeButton");
+        const uploadForm = document.getElementById("uploadForm");
+        const feedbackForm = document.getElementById("feedbackForm");
+        const analyzeBtn = document.getElementById("analyzeBtn");
+        const saveBtn = document.getElementById("saveBtn");
+        const suggestGenre = document.getElementById("suggestGenre");
+        const suggestInst = document.getElementById("suggestInst");
         const status = document.getElementById("status");
         const error = document.getElementById("error");
-        const results = document.getElementById("results");
+        const saveMsg = document.getElementById("saveMsg");
+        const analysisSection = document.getElementById("analysisSection");
 
-        form.addEventListener("submit", async (event) => {
-            event.preventDefault();
+        function drawWaveform(values) {
+            const canvas = document.getElementById("waveCanvas");
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = "#212529";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            const mid = canvas.height / 2;
+            const maxVal = Math.max(...values.map(Math.abs), 0.01);
+            values.forEach((v, i) => {
+                const x = (i / (values.length - 1)) * canvas.width;
+                const y = mid - (v / maxVal) * (mid - 6);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+        }
 
-            if (!fileInput.files.length) {
-                error.textContent = "Please choose an audio file.";
-                return;
-            }
+        uploadForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const file = document.getElementById("music").files[0];
+            if (!file) return;
 
             const formData = new FormData();
-            formData.append("music", fileInput.files[0]);
+            formData.append("music", file);
 
-            button.disabled = true;
-            status.textContent = "Analyzing audio... Please wait.";
+            analyzeBtn.disabled = true;
+            status.textContent = "Analyzing audio with Librosa...";
             error.textContent = "";
-            results.style.display = "none";
+            saveMsg.textContent = "";
 
             try {
-                const response = await fetch(API_URL, {
-                    method: "POST",
-                    body: formData
-                });
+                const res = await fetch(BASE_URL + "/analyze", { method: "POST", body: formData });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || "Server error");
 
-                const data = await response.json();
+                currentData = data;
+                document.getElementById("predGenre").textContent = data.genre;
+                document.getElementById("predInst").textContent = data.instrument;
+                document.getElementById("tempo").textContent = data.librosa.tempo;
+                document.getElementById("centroid").textContent = data.librosa.centroid + " Hz";
+                document.getElementById("rolloff").textContent = data.librosa.rolloff + " Hz";
+                document.getElementById("zcr").textContent = data.librosa.zcr;
 
-                if (!response.ok) {
-                    throw new Error(data.detail || "Request failed: " + response.status);
-                }
+                drawWaveform(data.librosa.waveform);
+                analysisSection.style.display = "block";
 
-                document.getElementById("genre").textContent =
-                    typeof data.genre === "object" ? JSON.stringify(data.genre) : data.genre;
-
-                document.getElementById("instrument").textContent =
-                    typeof data.instrument === "object" ? JSON.stringify(data.instrument) : data.instrument;
-
-                results.style.display = "block";
-                status.textContent = "Analysis complete.";
-            } catch (err) {
-                error.textContent =
-                    "Could not analyze the audio: " + err.message +
-                    "\nCheck that the FastAPI server is running at " + API_URL;
+                suggestGenre.value = data.genre;
+                suggestInst.value = data.instrument;
+                suggestGenre.disabled = false;
+                suggestInst.disabled = false;
+                saveBtn.disabled = false;
                 status.textContent = "";
-                console.error(err);
+            } catch (err) {
+                error.textContent = "Error: " + err.message;
+                status.textContent = "";
             } finally {
-                button.disabled = false;
+                analyzeBtn.disabled = false;
+            }
+        });
+
+        feedbackForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (!currentData) return;
+
+            saveBtn.disabled = true;
+            saveMsg.textContent = "Saving to CSV and retraining...";
+
+            try {
+                const res = await fetch(BASE_URL + "/add-to-dataset", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        filename: currentData.filename,
+                        genre: suggestGenre.value.trim(),
+                        instrument: suggestInst.value.trim(),
+                        genre_features: currentData.genre_features,
+                        instrument_features: currentData.instrument_features
+                    })
+                });
+                const result = await res.json();
+                saveMsg.textContent = result.message;
+            } catch (err) {
+                saveMsg.textContent = "Failed to save: " + err.message;
+            } finally {
+                saveBtn.disabled = false;
             }
         });
     </script>
