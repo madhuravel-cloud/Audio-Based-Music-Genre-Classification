@@ -11,6 +11,14 @@ st.set_page_config(page_title="Music Analyzer", layout="wide")
 
 st.title("Music Analyzer & Dataset Builder")
 
+st.markdown(
+    f"""
+    **Available Instruments:** {' '.join([f'`{inst}`' for inst in main2.CLASSES])}  
+    **Available Genres:** {' '.join([f'`{g}`' for g in main.CLASSES])}
+    """
+)
+st.divider()
+
 if "analyzed" not in st.session_state:
     st.session_state.analyzed = False
 
